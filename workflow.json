@@ -1,0 +1,385 @@
+{
+  "name": "InvestorUpdateEngine",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        32
+      ],
+      "name": "Run manually"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Monthly",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        208,
+        -64
+      ],
+      "name": "GetMonthly"
+    },
+    {
+      "parameters": {
+        "keep": "lastItems",
+        "maxItems": 1
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        432,
+        -64
+      ],
+      "name": "LatestMonth"
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-3.5-super-vl:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        888,
+        168
+      ],
+      "name": "AI model (OpenRouter)"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"summary\": \"Two sentence headline of the month.\",\n  \"wins\": \"• First win.\\n• Second win.\",\n  \"lowlights\": \"• First lowlight.\\n• Second lowlight.\",\n  \"asks\": \"• First ask.\\n• Second ask.\",\n  \"team\": \"One sentence about the team.\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1016,
+        168
+      ],
+      "name": "Update text format"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You write the text parts of a monthly investor update for a startup. The founder reviews it before sending.\n\nRules:\n1. Do not use any digits at all. No figures, percentages, amounts or dates. The numbers table is added separately.\n2. Use only facts from the founder's notes and the warnings below. Do not invent customers, reasons or plans.\n3. If there are warnings, mention them honestly in the summary. Explain a cause only if the founder's notes give one.\n4. Plain, direct English. No hype words like \"exciting\", \"incredible\" or \"game-changing\".\n5. Write each bullet as one short sentence starting with \"• \".\n\nMonth: {{ $('LatestMonth').item.json.month_label }}\nWarnings: {{ $('LatestMonth').item.json.warnings || 'none' }}\n\nFounder's notes:\nWins: {{ $json.wins }}\nLowlights: {{ $json.lowlights }}\nAsks: {{ $json.asks }}\nTeam: {{ $json.team }}\n\nReturn:\n- summary: two sentences giving the honest headline of the month\n- wins: bullets\n- lowlights: bullets\n- asks: bullets\n- team: one sentence",
+        "hasOutputParser": true,
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        880,
+        -64
+      ],
+      "name": "WriteText",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Highlights",
+          "mode": "name"
+        },
+        "options": {},
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "month",
+              "lookupValue": "={{ $json.month }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        656,
+        -64
+      ],
+      "name": "GetHighlights",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8049c5e5-8d1e-43eb-a2f3-9cc28b456a77",
+              "name": "text_check",
+              "value": "={{ /[0-9]/.test(Object.values($json.output).join(' ')) ? 'NEEDS REVIEW: the AI text contains numbers' : 'OK' }}",
+              "type": "string"
+            },
+            {
+              "id": "07e52588-54a4-4f5f-b137-4ec29f409c9e",
+              "name": "draft_status",
+              "value": "={{ ['OK','WARNING'].includes($('LatestMonth').item.json.status) ? (/[0-9]/.test(Object.values($json.output).join(' ')) ? 'NEEDS REVIEW' : 'READY FOR FOUNDER REVIEW') : 'DATA ERROR: fix the sheet before sending' }}",
+              "type": "string"
+            },
+            {
+              "id": "cf7b33e0-79f9-44b6-8cde-b1d4b4cb332d",
+              "name": "numbers_text",
+              "value": "={{ ['MRR: €' + $('LatestMonth').item.json.mrr_eur.toLocaleString('en-US') + ' (' + $('LatestMonth').item.json.mrr_growth_pct + '% vs last month)', 'Net new MRR: €' + $('LatestMonth').item.json.net_new_mrr_eur.toLocaleString('en-US'), 'Customers: ' + $('LatestMonth').item.json.customers_end + ' (' + $('LatestMonth').item.json.new_customers + ' new, ' + $('LatestMonth').item.json.churned_customers + ' churned, churn ' + $('LatestMonth').item.json.customer_churn_pct + '%)', 'Revenue: €' + $('LatestMonth').item.json.revenue_eur.toLocaleString('en-US'), 'Expenses: €' + $('LatestMonth').item.json.expenses_eur.toLocaleString('en-US'), 'Net burn: €' + $('LatestMonth').item.json.burn_eur.toLocaleString('en-US') + ' (' + $('LatestMonth').item.json.burn_change_pct + '% vs last month)', 'Cash: €' + $('LatestMonth').item.json.cash_end_eur.toLocaleString('en-US'), 'Runway: ' + $('LatestMonth').item.json.runway_months + ' months', 'Headcount: ' + $('LatestMonth').item.json.headcount, 'Pipeline: €' + $('LatestMonth').item.json.pipeline_eur.toLocaleString('en-US')].join('\\n') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1232,
+        -64
+      ],
+      "name": "CheckText"
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "={{ $json.draft_status === 'READY FOR FOUNDER REVIEW' ? '' : '[' + $json.draft_status + '] ' }}Investor update – {{ $('LatestMonth').item.json.month_label }}",
+        "message": "=Hi everyone,\n\n{{ $json.output.summary }}\n\nKEY NUMBERS\n{{ $json.numbers_text }}\n\nWINS\n{{ $json.output.wins }}\n\nLOWLIGHTS\n{{ $json.output.lowlights }}\n\nASKS\n{{ $json.output.asks }}\n\nTEAM\n{{ $json.output.team }}\n\nThanks for your support,\n[Founder name]\n\n---\nInternal check (delete before sending): {{ $('LatestMonth').item.json.warnings || 'No warnings' }} · Text check: {{ $json.text_check }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1456,
+        -64
+      ],
+      "name": "SaveDraft"
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "={{ '📊 ' + $('LatestMonth').item.json.month_label + ' investor update is in your Gmail drafts.\\nStatus: ' + $('CheckText').item.json.draft_status + '\\nWarnings: ' + ($('LatestMonth').item.json.warnings || 'none') }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1680,
+        -64
+      ],
+      "name": "AlertFounder"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "months",
+              "triggerAtDayOfMonth": 1,
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -16,
+        -160
+      ],
+      "name": "Run monthly (1st, 08:00)"
+    },
+    {
+      "parameters": {
+        "content": "## InvestorUpdateEngine\nDrafts the monthly investor update from a Google Sheet.\n\nAll maths lives in the sheet as formulas. AI only writes text. Nothing is sent: the result is a Gmail draft.\n\nSetup: see README.",
+        "height": 200,
+        "width": 480,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -420
+      ],
+      "name": "Note 1"
+    },
+    {
+      "parameters": {
+        "content": "### 1 · Read the numbers\nMonthly tab incl. formula columns (burn, runway, growth, churn, data checks, warnings, status). LatestMonth keeps the newest row.",
+        "height": 160,
+        "width": 420,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        180,
+        -260
+      ],
+      "name": "Note 2"
+    },
+    {
+      "parameters": {
+        "content": "### 2 · AI writes text only\nFounder notes from the Highlights tab. Rule: no digits, no invented facts. Model: free OpenRouter model.",
+        "height": 160,
+        "width": 420,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        620,
+        -260
+      ],
+      "name": "Note 3"
+    },
+    {
+      "parameters": {
+        "content": "### 3 · Check, draft, alert\nCheckText: status must be OK or WARNING, AI text must contain no digits. Otherwise the subject is flagged. Draft goes to Gmail, alert to Telegram.",
+        "height": 160,
+        "width": 520,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        -260
+      ],
+      "name": "Note 4"
+    }
+  ],
+  "connections": {
+    "Run manually": {
+      "main": [
+        [
+          {
+            "node": "GetMonthly",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetMonthly": {
+      "main": [
+        [
+          {
+            "node": "LatestMonth",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LatestMonth": {
+      "main": [
+        [
+          {
+            "node": "GetHighlights",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI model (OpenRouter)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "WriteText",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update text format": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "WriteText",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetHighlights": {
+      "main": [
+        [
+          {
+            "node": "WriteText",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WriteText": {
+      "main": [
+        [
+          {
+            "node": "CheckText",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CheckText": {
+      "main": [
+        [
+          {
+            "node": "SaveDraft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SaveDraft": {
+      "main": [
+        [
+          {
+            "node": "AlertFounder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run monthly (1st, 08:00)": {
+      "main": [
+        [
+          {
+            "node": "GetMonthly",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  }
+}
