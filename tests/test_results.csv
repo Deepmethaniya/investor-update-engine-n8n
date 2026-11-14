@@ -1,0 +1,12 @@
+id,what_it_tests,expected,actual,result,note
+T01,Normal month (baseline),READY · Burn up 54.3% · Customer churn 3.3%,READY · Burn up 54.3% · Customer churn 3.3%,PASS,
+T02,Cash does not add up,DATA ERROR,DATA ERROR,PASS,
+T03,Customers do not add up,DATA ERROR,DATA ERROR,PASS,
+T04,MRR does not add up,DATA ERROR,DATA ERROR,PASS,First run: a sheet formula error (#REF!) passed as READY. Fixed: only status OK or WARNING can be ready. Re-run passed.
+T05,Empty cell,DATA ERROR,DATA ERROR,PASS,
+T06,Missing month (row deleted),DATA ERROR,DATA ERROR · Cannot calculate: data error,PASS,Added IFERROR so warnings show a clear message instead of #REF!/#DIV/0!
+T07,Runway under 12 months,READY · Runway under 12 months,READY · Burn up 481% · Runway under 12 months · Customer churn 3.3%,PASS,
+T08,MRR falls,READY · MRR fell,READY · Burn up 69% · MRR fell · Customer churn 3.3%,PASS,First run missed one test cell (cash); the cash check correctly flagged it. Re-run with all 4 cells passed.
+T09,Healthy month (no false alarms),READY · no warnings,READY · Warnings: none,PASS,
+T10,Founder wrote no notes,AI invents nothing,Wins/lowlights/asks/team empty,PASS,
+T11,AI writes numbers,NEEDS REVIEW,NEEDS REVIEW,PASS,

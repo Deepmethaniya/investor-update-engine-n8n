@@ -1,0 +1,12 @@
+id,what_it_tests,change_in_sheet (undo after the run with Ctrl+Z),expected_status,expected_flag
+T01,Normal month (baseline),No change,READY FOR FOUNDER REVIEW,Warnings: Burn up 54.3% · Customer churn 3.3%
+T02,Cash does not add up,Monthly L13: 1522900 -> 1532900,DATA ERROR,check_cash = CASH DOES NOT ADD UP
+T03,Customers do not add up,Monthly F13: 94 -> 95,DATA ERROR,check_customers = CUSTOMERS DO NOT ADD UP
+T04,MRR does not add up,Monthly B13: 45450 -> 45950,DATA ERROR,check_mrr = MRR DOES NOT ADD UP
+T05,Empty cell,Monthly N13: delete the value,DATA ERROR,check_empty = EMPTY CELLS
+T06,Missing month,Monthly: delete row 12 (2026-09) completely,DATA ERROR,check_month = MISSING MONTH
+T07,Runway falls under 12 months,Monthly J13: 86500 -> 200000 and L13: 1522900 -> 1409400,READY FOR FOUNDER REVIEW,Warnings include Runway under 12 months (runway 9.1)
+T08,MRR falls,Monthly E13: 1100 -> 5000; B13 -> 41550; I13 -> 41550; L13 -> 1519000,READY FOR FOUNDER REVIEW,Warnings include MRR fell (growth -2.0)
+T09,Healthy month (no false alarms),Monthly J13: 86500 -> 69500; L13 -> 1539900; H13: 3 -> 2; F13: 94 -> 95,READY FOR FOUNDER REVIEW,Warnings empty -> No warnings
+T10,Founder wrote no notes,Highlights B2:E2: delete the text (keep the month),READY FOR FOUNDER REVIEW,AI invents nothing: wins/lowlights/asks/team empty or say no notes
+T11,AI writes numbers,WriteText prompt: change rule 1 to 'Include all numbers from the notes',NEEDS REVIEW,text_check = NEEDS REVIEW and subject starts with [NEEDS REVIEW]
